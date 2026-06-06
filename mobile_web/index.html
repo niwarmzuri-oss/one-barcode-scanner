@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Scan product barcodes in-store using your smartphone camera to check names and prices instantly in Iraqi Dinars (IQD). No registration required.">
+    <meta name="theme-color" content="#0d0e15">
+    
+    <!-- Open Graph tags for rich previews -->
+    <meta property="og:title" content="One Barcode - Retail Smart Scanner">
+    <meta property="og:description" content="In-store barcode scanner for instant product pricing.">
+    <meta property="og:type" content="website">
+    
+    <title>One Barcode - Check Prices Instantly</title>
+    
+    <!-- Premium Google Fonts: Inter and Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- External stylesheet for premium glassmorphism styling -->
+    <link rel="stylesheet" href="style.css?v=2">
+    
+    <!-- html5-qrcode scanner library from CDN -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <!-- Main application logic -->
+    <script defer src="app.js?v=2"></script>
+</head>
+<body>
+    <!-- Animated background gradient blobs -->
+    <div class="bg-glow-blob blob-1"></div>
+    <div class="bg-glow-blob blob-2"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1 class="logo-text">One<span>Barcode</span></h1>
+            <p class="tagline">Tap below to scan product prices</p>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="main-content">
+            <!-- Configuration Info (Optional Banner, hidden once setup) -->
+            <div id="setup-banner" class="setup-banner hidden">
+                <p>⚠️ Local preview mode: Enter Supabase settings in settings toggle.</p>
+            </div>
+
+            <!-- Scanner Frame -->
+            <div class="scanner-card">
+                <div class="scanner-viewport-wrapper">
+                    <!-- Scanner camera rendering target -->
+                    <div id="scanner-view"></div>
+                    
+                    <!-- Viewfinder Overlay with neon laser lines -->
+                    <div id="viewfinder" class="viewfinder hidden">
+                        <div class="laser-line"></div>
+                        <div class="corner corner-tl"></div>
+                        <div class="corner corner-tr"></div>
+                        <div class="corner corner-bl"></div>
+                        <div class="corner corner-br"></div>
+                    </div>
+                    
+                    <!-- Splash display prior to activating camera -->
+                    <div id="scanner-splash" class="scanner-splash">
+                        <div class="splash-icon">🔍</div>
+                        <p class="splash-prompt">Ready to scan in-store products</p>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="scanner-controls">
+                    <button id="btn-scan-trigger" class="btn btn-primary">
+                        <span class="btn-icon">📷</span> Start Scanner
+                    </button>
+                    
+                    <button id="btn-torch-toggle" class="btn btn-secondary btn-icon-only hidden" aria-label="Toggle Flashlight" title="Toggle Flashlight">
+                        🔦
+                    </button>
+                </div>
+            </div>
+
+            <!-- Configuration Drawer (Hidden by default, used to plug in Supabase credentials) -->
+            <details id="config-drawer" class="config-drawer">
+                <summary>🔧 Connection Settings</summary>
+                <div class="drawer-content">
+                    <label for="input-sb-url">Supabase URL:</label>
+                    <input type="text" id="input-sb-url" placeholder="https://xyz.supabase.co">
+                    
+                    <label for="input-sb-key">Supabase Anon Key:</label>
+                    <input type="password" id="input-sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+                    
+                    <div style="display: flex; gap: 8px; margin-top: 5px;">
+                        <button id="btn-save-config" class="btn btn-small btn-primary" style="flex-grow: 1; padding: 10px 0;">Save</button>
+                        <button id="btn-reset-config" class="btn btn-small btn-secondary" style="flex-grow: 1; padding: 10px 0;">Reset Defaults</button>
+                    </div>
+                </div>
+            </details>
+        </main>
+
+        <!-- Result Modal Sheet (Slides from bottom) -->
+        <div id="price-modal" class="modal-sheet">
+            <div class="modal-handle"></div>
+            <div class="modal-content">
+                <div id="modal-status-icon" class="modal-status-icon success">✓</div>
+                
+                <h2 id="result-product-name" class="product-title">Loading Product...</h2>
+                <div id="result-product-barcode" class="product-barcode">Barcode: 000000000</div>
+                
+                <div class="price-display">
+                    <span id="result-product-price" class="price-val">0</span>
+                    <span class="price-currency">IQD</span>
+                </div>
+
+                <button id="btn-scan-next" class="btn btn-success btn-full">
+                    Scan Next Item
+                </button>
+            </div>
+        </div>
+        
+        <!-- Error Toast Notification -->
+        <div id="toast" class="toast hidden"></div>
+        
+        <footer class="app-footer">
+            <p>&copy; 2026 Retail Smart Systems. Point your browser camera at barcodes.</p>
+        </footer>
+    </div>
+</body>
+</html>

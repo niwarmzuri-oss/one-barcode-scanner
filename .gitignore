@@ -1,0 +1,10 @@
+.DS_Store
+desktop_app/dist/
+desktop_app/build/
+desktop_app/config.json
+desktop_app/__pycache__/
+__pycache__/
+*.pyc
+cert.pem
+key.pem
+mobile_web.zip
