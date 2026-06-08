@@ -175,10 +175,11 @@ body {
 /* Finder Overlay */
 .viewfinder {
     position: absolute;
-    top: 15%;
-    left: 15%;
-    width: 70%;
-    height: 70%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 85%;
+    height: 38.25%; /* Matches 85% * 0.45 aspect ratio of decoding area */
     pointer-events: none;
     z-index: 10;
 }
@@ -494,4 +495,294 @@ body {
     padding: 20px 0 10px;
     font-size: 0.75rem;
     color: var(--text-muted);
+}
+
+/* Result Modal Actions Row */
+.modal-actions-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    margin-top: 10px;
+}
+
+@media (min-width: 360px) {
+    .modal-actions-row {
+        flex-direction: row;
+    }
+}
+
+/* Floating Basket Bar */
+.basket-bar {
+    position: fixed;
+    bottom: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 440px;
+    z-index: 90;
+    animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpFade {
+    from {
+        transform: translateX(-50%) translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+}
+
+.basket-bar-content {
+    background: rgba(17, 20, 32, 0.85);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 12px 20px;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: var(--shadow-glow);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.basket-bar-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.basket-bar-icon {
+    font-size: 1.3rem;
+}
+
+.basket-bar-badge {
+    background-color: var(--color-primary);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.basket-bar-total {
+    font-family: var(--font-outfit);
+    font-weight: 700;
+    color: var(--color-success);
+    font-size: 1rem;
+    margin-left: 5px;
+}
+
+/* Basket Modal Content Styling */
+.modal-content-full {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.basket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.basket-title {
+    font-family: var(--font-outfit);
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: white;
+}
+
+.btn-clear-basket {
+    background: transparent;
+    border: none;
+    color: var(--color-error);
+    font-family: var(--font-inter);
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.btn-clear-basket:active {
+    background-color: rgba(244, 63, 94, 0.1);
+}
+
+.basket-items {
+    max-height: 260px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+    padding-right: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Custom scrollbar for basket list */
+.basket-items::-webkit-scrollbar {
+    width: 5px;
+}
+
+.basket-items::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.basket-items::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.basket-empty-msg {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    padding: 40px 0;
+}
+
+/* Basket Item Row */
+.basket-item {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 14px;
+    padding: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    animation: itemPopIn 0.25s ease-out;
+}
+
+@keyframes itemPopIn {
+    from {
+        transform: scale(0.95);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.basket-item-info {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.basket-item-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.basket-item-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.basket-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.basket-qty-control {
+    display: flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 2px;
+}
+
+.btn-qty {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: transparent;
+    border: none;
+    color: white;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.btn-qty:active {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.basket-qty-val {
+    font-family: var(--font-outfit);
+    font-size: 0.9rem;
+    font-weight: 600;
+    width: 24px;
+    text-align: center;
+}
+
+.basket-item-price {
+    font-family: var(--font-outfit);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-success);
+    min-width: 70px;
+    text-align: right;
+}
+
+.btn-delete-item {
+    background: transparent;
+    border: none;
+    color: var(--color-error);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.btn-delete-item:active {
+    background-color: rgba(244, 63, 94, 0.1);
+}
+
+/* Basket Summary */
+.basket-summary {
+    background: rgba(255, 255, 255, 0.02);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 15px 0;
+    margin-bottom: 20px;
+}
+
+.basket-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.basket-total-val {
+    font-family: var(--font-outfit);
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--color-success);
+    text-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
 }

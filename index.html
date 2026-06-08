@@ -112,8 +112,53 @@
                     <span class="price-currency">IQD</span>
                 </div>
 
-                <button id="btn-scan-next" class="btn btn-success btn-full">
-                    Scan Next Item
+                <div class="modal-actions-row">
+                    <button id="btn-add-to-basket" class="btn btn-primary btn-full">
+                        🛒 Add to Basket
+                    </button>
+                    <button id="btn-scan-next" class="btn btn-secondary btn-full">
+                        Scan Next Item
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Floating Basket Bar (Sticky Bottom) -->
+        <div id="basket-bar" class="basket-bar hidden">
+            <div class="basket-bar-content">
+                <div class="basket-bar-info">
+                    <span class="basket-bar-icon">🛒</span>
+                    <span id="basket-bar-count" class="basket-bar-badge">0</span>
+                    <span id="basket-bar-total" class="basket-bar-total">0 IQD</span>
+                </div>
+                <button id="btn-open-basket" class="btn btn-primary btn-small">
+                    View Basket
+                </button>
+            </div>
+        </div>
+
+        <!-- Basket Slide-Up Modal Sheet -->
+        <div id="basket-modal" class="modal-sheet">
+            <div class="modal-handle"></div>
+            <div class="modal-content-full">
+                <div class="basket-header">
+                    <h2 class="basket-title">Shopping Basket</h2>
+                    <button id="btn-clear-basket" class="btn-clear-basket">Clear All</button>
+                </div>
+                
+                <div id="basket-items" class="basket-items">
+                    <div class="basket-empty-msg">Your basket is empty</div>
+                </div>
+                
+                <div class="basket-summary">
+                    <div class="basket-total-row">
+                        <span>Estimated Total:</span>
+                        <span id="basket-grand-total" class="basket-total-val">0 IQD</span>
+                    </div>
+                </div>
+                
+                <button id="btn-close-basket" class="btn btn-secondary btn-full">
+                    Back to Scanner
                 </button>
             </div>
         </div>
