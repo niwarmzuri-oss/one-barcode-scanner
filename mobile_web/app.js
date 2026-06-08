@@ -3,6 +3,8 @@ let html5QrcodeScanner = null;
 let isScanning = false;
 let isTorchOn = false;
 let cameraTrack = null;
+let basket = [];
+let currentProduct = null;
 
 // Supabase Credentials
 let config = {
@@ -40,9 +42,23 @@ const resultProductBarcode = document.getElementById("result-product-barcode");
 const resultProductPrice = document.getElementById("result-product-price");
 const toast = document.getElementById("toast");
 
+// Basket UI Elements
+const btnAddToBasket = document.getElementById("btn-add-to-basket");
+const basketBar = document.getElementById("basket-bar");
+const basketBarCount = document.getElementById("basket-bar-count");
+const basketBarTotal = document.getElementById("basket-bar-total");
+const btnOpenBasket = document.getElementById("btn-open-basket");
+
+const basketModal = document.getElementById("basket-modal");
+const basketItems = document.getElementById("basket-items");
+const basketGrandTotal = document.getElementById("basket-grand-total");
+const btnCloseBasket = document.getElementById("btn-close-basket");
+const btnClearBasket = document.getElementById("btn-clear-basket");
+
 // Initialize App
 window.addEventListener("DOMContentLoaded", () => {
     loadSettings();
+    loadBasket();
     setupEventListeners();
 });
 
@@ -115,12 +131,32 @@ function setupEventListeners() {
     btnSaveConfig.addEventListener("click", saveSettings);
     btnResetConfig.addEventListener("click", resetSettings);
     
+    // Add to Basket button listener
+    btnAddToBasket.addEventListener("click", addCurrentToBasket);
+    
+    // Floating bar / View Basket toggle
+    btnOpenBasket.addEventListener("click", openBasket);
+    
+    // Close basket modal actions
+    btnCloseBasket.addEventListener("click", closeBasket);
+    btnClearBasket.addEventListener("click", clearBasket);
+    
     // Close modal if user clicks outside of modal content (on the handle or overlay)
     priceModal.addEventListener("click", (e) => {
         if (e.target === priceModal || e.target.classList.contains("modal-handle")) {
             scanNextItem();
         }
     });
+
+    // Close basket modal if user clicks outside of modal content
+    basketModal.addEventListener("click", (e) => {
+        if (e.target === basketModal || e.target.classList.contains("modal-handle")) {
+            closeBasket();
+        }
+    });
+
+    // Event delegation for item adjustments and deletes inside the basket modal
+    basketItems.addEventListener("click", handleBasketItemClick);
 }
 
 // Show clean top toast alert
@@ -199,8 +235,24 @@ async function startScanner() {
         await html5QrcodeScanner.start(
             cameraId,
             {
-                fps: 15,
-                qrbox: 250 // Static box width for scanner view
+                fps: 30, // Sample frames at 30 FPS for instant response
+                qrbox: (width, height) => {
+                    // Create a wide rectangular scanning box ideal for 1D product barcodes
+                    const scanWidth = Math.floor(width * 0.85);
+                    const scanHeight = Math.floor(scanWidth * 0.45);
+                    return { width: scanWidth, height: scanHeight };
+                },
+                formatsToSupport: [
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.EAN_8,
+                    Html5QrcodeSupportedFormats.UPC_A,
+                    Html5QrcodeSupportedFormats.UPC_E,
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.QR_CODE
+                ],
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true // Native hardware acceleration on mobile
+                }
             },
             qrCodeSuccessCallback,
             (errorMessage) => {}
@@ -310,6 +362,10 @@ function playBeep() {
 
 // Fetch price and metadata from Supabase
 async function fetchProductDetails(barcode) {
+    // Reset currently selected product and hide basket action during loading
+    currentProduct = null;
+    btnAddToBasket.style.display = "none";
+
     // Show Loading inside Modal sheet immediately
     resultProductName.textContent = "Checking prices...";
     resultProductBarcode.textContent = `Barcode: ${barcode}`;
@@ -371,6 +427,8 @@ async function fetchProductDetails(barcode) {
         if (product) {
             displayProduct(product.name + " (Offline Preview)", barcode, product.price);
         } else {
+            currentProduct = null;
+            btnAddToBasket.style.display = "none";
             resultProductName.textContent = "Connection Error";
             resultProductPrice.textContent = "Error";
             showToast("Failed to connect to Supabase database. Verify configuration settings.");
@@ -385,6 +443,9 @@ function formatIQD(price) {
 
 // Update modal sheet details with product info
 function displayProduct(name, barcode, price) {
+    currentProduct = { name, barcode, price };
+    btnAddToBasket.style.display = ""; // Show the Add to Basket button
+    
     modalStatusIcon.textContent = "✓";
     modalStatusIcon.classList.remove("error");
     modalStatusIcon.classList.add("success");
@@ -395,6 +456,9 @@ function displayProduct(name, barcode, price) {
 
 // Display product not found details
 function displayProductNotFound(barcode) {
+    currentProduct = null;
+    btnAddToBasket.style.display = "none"; // Hide the Add to Basket button
+    
     modalStatusIcon.textContent = "✗";
     modalStatusIcon.classList.remove("success");
     modalStatusIcon.classList.add("error");
@@ -410,6 +474,203 @@ function scanNextItem() {
     // Restart scanning loop
     setTimeout(() => {
         if (!isScanning) {
+            startScanner();
+        }
+    }, 300);
+}
+
+// ==========================================
+// SHOPPING BASKET STATE & ACTIONS
+// ==========================================
+
+// Load basket state from localStorage
+function loadBasket() {
+    try {
+        const savedBasket = localStorage.getItem("ob_shopping_basket");
+        if (savedBasket) {
+            basket = JSON.parse(savedBasket);
+        } else {
+            basket = [];
+        }
+    } catch (e) {
+        console.error("Failed to load basket:", e);
+        basket = [];
+    }
+    renderBasket();
+}
+
+// Save basket state to localStorage
+function saveBasket() {
+    try {
+        localStorage.setItem("ob_shopping_basket", JSON.stringify(basket));
+    } catch (e) {
+        console.error("Failed to save basket:", e);
+    }
+}
+
+// Add currently scanned product to the shopping basket
+function addCurrentToBasket() {
+    if (!currentProduct) {
+        showToast("No product selected to add.");
+        return;
+    }
+    
+    const existingIndex = basket.findIndex(item => item.barcode === currentProduct.barcode);
+    if (existingIndex > -1) {
+        basket[existingIndex].quantity += 1;
+    } else {
+        basket.push({
+            barcode: currentProduct.barcode,
+            name: currentProduct.name,
+            price: currentProduct.price,
+            quantity: 1
+        });
+    }
+    
+    saveBasket();
+    renderBasket();
+    
+    // Auto close product modal and restart camera
+    priceModal.classList.remove("active");
+    showToast(`Added "${currentProduct.name}" to basket!`, 2000);
+    
+    currentProduct = null;
+    
+    setTimeout(() => {
+        if (!isScanning) {
+            startScanner();
+        }
+    }, 300);
+}
+
+// Render dynamic basket interface
+function renderBasket() {
+    // Clear dynamic list
+    basketItems.innerHTML = "";
+    
+    let totalCount = 0;
+    let grandTotal = 0;
+    
+    if (basket.length === 0) {
+        basketItems.innerHTML = '<div class="basket-empty-msg">Your basket is empty</div>';
+        basketBar.classList.add("hidden");
+    } else {
+        basket.forEach(item => {
+            totalCount += item.quantity;
+            const itemTotal = item.price * item.quantity;
+            grandTotal += itemTotal;
+            
+            const row = document.createElement("div");
+            row.className = "basket-item";
+            row.innerHTML = `
+                <div class="basket-item-info">
+                    <div class="basket-item-name">${escapeHTML(item.name)}</div>
+                    <div class="basket-item-meta">${formatIQD(item.price)} IQD | Barcode: ${item.barcode}</div>
+                </div>
+                <div class="basket-item-actions">
+                    <div class="basket-qty-control">
+                        <button class="btn-qty btn-qty-minus" data-barcode="${item.barcode}">-</button>
+                        <span class="basket-qty-val">${item.quantity}</span>
+                        <button class="btn-qty btn-qty-plus" data-barcode="${item.barcode}">+</button>
+                    </div>
+                    <div class="basket-item-price">${formatIQD(itemTotal)}</div>
+                    <button class="btn-delete-item" data-barcode="${item.barcode}" aria-label="Remove item">✕</button>
+                </div>
+            `;
+            basketItems.appendChild(row);
+        });
+        
+        // Render floating indicator
+        basketBar.classList.remove("hidden");
+    }
+    
+    // Update total count labels & totals
+    basketBarCount.textContent = totalCount;
+    basketBarTotal.textContent = `${formatIQD(grandTotal)} IQD`;
+    basketGrandTotal.textContent = `${formatIQD(grandTotal)} IQD`;
+}
+
+// Simple HTML escaping helper for display safety
+function escapeHTML(str) {
+    return str.replace(/[&<>'"]/g, 
+        tag => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+        }[tag] || tag)
+    );
+}
+
+// Handle basket action buttons click delegation
+function handleBasketItemClick(e) {
+    const target = e.target;
+    const barcode = target.getAttribute("data-barcode");
+    if (!barcode) return;
+    
+    if (target.classList.contains("btn-qty-plus")) {
+        updateQuantity(barcode, 1);
+    } else if (target.classList.contains("btn-qty-minus")) {
+        updateQuantity(barcode, -1);
+    } else if (target.classList.contains("btn-delete-item")) {
+        removeBasketItem(barcode);
+    }
+}
+
+// Update item quantity inside the basket
+function updateQuantity(barcode, delta) {
+    const index = basket.findIndex(item => item.barcode === barcode);
+    if (index === -1) return;
+    
+    basket[index].quantity += delta;
+    if (basket[index].quantity <= 0) {
+        basket.splice(index, 1);
+    }
+    
+    saveBasket();
+    renderBasket();
+}
+
+// Remove item entirely from the basket
+function removeBasketItem(barcode) {
+    const index = basket.findIndex(item => item.barcode === barcode);
+    if (index === -1) return;
+    
+    const name = basket[index].name;
+    basket.splice(index, 1);
+    
+    saveBasket();
+    renderBasket();
+    showToast(`Removed "${name}" from basket.`, 2000);
+}
+
+// Clear all basket contents after confirmation
+function clearBasket() {
+    if (basket.length === 0) return;
+    
+    if (confirm("Are you sure you want to clear your shopping basket?")) {
+        basket = [];
+        saveBasket();
+        renderBasket();
+        closeBasket();
+        showToast("Basket cleared.", 2000);
+    }
+}
+
+// Open basket modal sheet and pause camera
+function openBasket() {
+    if (isScanning) {
+        stopScanner();
+    }
+    basketModal.classList.add("active");
+}
+
+// Close basket modal sheet and resume scanning
+function closeBasket() {
+    basketModal.classList.remove("active");
+    setTimeout(() => {
+        if (!isScanning && !priceModal.classList.contains("active")) {
             startScanner();
         }
     }, 300);
