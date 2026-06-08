@@ -231,15 +231,19 @@ async function startScanner() {
             cameraId = devices[devices.length - 1].id;
         }
 
-        // Start scanning using the specific resolved cameraId
+        // Start scanning using the specific resolved cameraId and optimized video constraints
         await html5QrcodeScanner.start(
-            cameraId,
             {
-                fps: 30, // Sample frames at 30 FPS for instant response
+                deviceId: cameraId,
+                width: { min: 640, ideal: 1280 },
+                height: { min: 480, ideal: 720 }
+            },
+            {
+                fps: 10, // Lowering FPS to 10 prevents mobile browser CPU choking
                 qrbox: (width, height) => {
-                    // Create a wide rectangular scanning box ideal for 1D product barcodes
+                    // Create a narrow horizontal barcode window to improve decoding accuracy
                     const scanWidth = Math.floor(width * 0.85);
-                    const scanHeight = Math.floor(scanWidth * 0.45);
+                    const scanHeight = Math.floor(scanWidth * 0.35);
                     return { width: scanWidth, height: scanHeight };
                 },
                 formatsToSupport: [
@@ -247,11 +251,10 @@ async function startScanner() {
                     Html5QrcodeSupportedFormats.EAN_8,
                     Html5QrcodeSupportedFormats.UPC_A,
                     Html5QrcodeSupportedFormats.UPC_E,
-                    Html5QrcodeSupportedFormats.CODE_128,
-                    Html5QrcodeSupportedFormats.QR_CODE
+                    Html5QrcodeSupportedFormats.CODE_128
                 ],
                 experimentalFeatures: {
-                    useBarCodeDetectorIfSupported: true // Native hardware acceleration on mobile
+                    useBarCodeDetectorIfSupported: true // Hardware acceleration
                 }
             },
             qrCodeSuccessCallback,
