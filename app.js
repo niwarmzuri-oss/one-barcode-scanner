@@ -231,13 +231,9 @@ async function startScanner() {
             cameraId = devices[devices.length - 1].id;
         }
 
-        // Start scanning using the specific resolved cameraId and optimized video constraints
+        // Start scanning using the specific resolved cameraId
         await html5QrcodeScanner.start(
-            {
-                deviceId: cameraId,
-                width: { min: 640, ideal: 1280 },
-                height: { min: 480, ideal: 720 }
-            },
+            cameraId,
             {
                 fps: 10, // Lowering FPS to 10 prevents mobile browser CPU choking
                 qrbox: (width, height) => {
