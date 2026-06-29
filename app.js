@@ -1,9 +1,10 @@
 // Global Application State
-let html5QrcodeScanner = null;
 let isScanning = false;
 let isTorchOn = false;
 let cameraTrack = null;
 let basket = [];
+let lastDecodedCode = null;
+let consecutiveMatches = 0;
 let currentProduct = null;
 
 // Supabase Credentials
@@ -169,6 +170,11 @@ function setupEventListeners() {
 
     // Event delegation for item adjustments and deletes inside the basket modal
     basketItems.addEventListener("click", handleBasketItemClick);
+
+    // Register Quagga barcode detected callback once
+    if (typeof Quagga !== 'undefined') {
+        Quagga.onDetected(handleBarcodeDetected);
+    }
 }
 
 // Show clean top toast alert
@@ -192,100 +198,65 @@ async function toggleScanner() {
     }
 }
 
-// Start Camera Stream & Decoding loop
+// Start Camera Stream & Decoding loop using Quagga2
 async function startScanner() {
-    if (html5QrcodeScanner) return;
+    if (isScanning) return;
     
     // Reset States
     scannerSplash.classList.add("hidden");
     viewfinder.classList.remove("hidden");
     btnScanTrigger.innerHTML = '<span class="btn-icon">⏹</span> Stop Scanner';
     
-    html5QrcodeScanner = new Html5Qrcode("scanner-view");
     isScanning = true;
     
-    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-        // Trigger haptic vibration on mobile devices
-        if (navigator.vibrate) {
-            navigator.vibrate(100);
-        }
-        
-        // Success feedback audio (soft synth beep)
-        playBeep();
-        
-        // Stop scanning after successful barcode read
-        stopScanner();
-        
-        // Query product details from database
-        fetchProductDetails(decodedText);
-    };
+    // Clear consecutive match trackers
+    lastDecodedCode = null;
+    consecutiveMatches = 0;
     
-    try {
-        // Query available camera devices (asks for permissions if not granted)
-        const devices = await Html5Qrcode.getCameras();
-        if (!devices || devices.length === 0) {
-            throw new Error("No camera devices found on this device.");
-        }
-        
-        // Find best camera (prefer rear/back camera on phones)
-        let cameraId = devices[0].id;
-        for (const device of devices) {
-            const label = device.label.toLowerCase();
-            if (label.includes("back") || label.includes("rear") || label.includes("environment")) {
-                cameraId = device.id;
-                break;
+    Quagga.init({
+        inputStream: {
+            name: "LiveStream",
+            type: "LiveStream",
+            target: document.querySelector("#scanner-view"),
+            constraints: {
+                facingMode: "environment",
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
             }
+        },
+        locator: {
+            patchSize: "medium",
+            halfSample: true
+        },
+        numOfWorkers: 2,
+        decoder: {
+            readers: [
+                "ean_reader",
+                "ean_8_reader",
+                "upc_reader",
+                "upc_e_reader",
+                "code_128_reader"
+            ]
+        },
+        locate: true
+    }, function(err) {
+        if (err) {
+            console.error("Quagga initialization failed:", err);
+            showToast("Error: Could not access camera. Make sure permissions are granted.");
+            stopScanner();
+            return;
         }
         
-        // On iOS devices, if multiple cameras exist but labels are empty or don't match,
-        // the last camera in the list is typically the main rear camera.
-        if (devices.length > 1 && cameraId === devices[0].id) {
-            cameraId = devices[devices.length - 1].id;
-        }
-
-        // Start scanning using the specific resolved cameraId
-        await html5QrcodeScanner.start(
-            cameraId,
-            {
-                fps: 10, // Lowering FPS to 10 prevents mobile browser CPU choking
-                qrbox: (width, height) => {
-                    // Create a narrow horizontal barcode window to improve decoding accuracy
-                    const scanWidth = Math.floor(width * 0.85);
-                    const scanHeight = Math.floor(scanWidth * 0.35);
-                    return { width: scanWidth, height: scanHeight };
-                },
-                formatsToSupport: [
-                    Html5QrcodeSupportedFormats.EAN_13,
-                    Html5QrcodeSupportedFormats.EAN_8,
-                    Html5QrcodeSupportedFormats.UPC_A,
-                    Html5QrcodeSupportedFormats.UPC_E,
-                    Html5QrcodeSupportedFormats.CODE_128
-                ],
-                videoConstraints: {
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                },
-                experimentalFeatures: {
-                    useBarCodeDetectorIfSupported: true // Hardware acceleration
-                }
-            },
-            qrCodeSuccessCallback,
-            (errorMessage) => {}
-        );
+        Quagga.start();
         
         // Detect camera stream and check torch capabilities
         setTimeout(() => {
             detectTorchSupport();
         }, 1000);
-        
-    } catch (err) {
-        console.error("Camera access failed", err);
-        showToast("Error: Could not access camera. Make sure permissions are granted.");
-        stopScanner();
-    }
+    });
 }
 
-// Terminate camera stream safely
+// Terminate camera stream safely using Quagga2
 async function stopScanner() {
     isScanning = false;
     isTorchOn = false;
@@ -296,28 +267,17 @@ async function stopScanner() {
     scannerSplash.classList.remove("hidden");
     btnScanTrigger.innerHTML = '<span class="btn-icon">📷</span> Start Scanner';
     
-    if (html5QrcodeScanner) {
-        try {
-            await html5QrcodeScanner.stop();
-        } catch (e) {
-            console.warn("Error while stopping scanner camera:", e);
-        }
-        html5QrcodeScanner = null;
+    try {
+        Quagga.stop();
+    } catch (e) {
+        // scanner might not be running, safe to catch
     }
 }
 
 // Check if the current video stream track supports a torch / flashlight
 function detectTorchSupport() {
-    if (!html5QrcodeScanner) return;
-    
     try {
-        const scannerElement = document.querySelector("#scanner-view video");
-        if (!scannerElement) return;
-        
-        const stream = scannerElement.srcObject;
-        if (!stream) return;
-        
-        cameraTrack = stream.getVideoTracks()[0];
+        cameraTrack = Quagga.CameraAccess.getActiveTrack();
         if (!cameraTrack) return;
         
         const capabilities = cameraTrack.getCapabilities();
@@ -347,6 +307,38 @@ function detectTorchSupport() {
     } catch (e) {
         console.warn("Camera track capability checking not supported by browser:", e);
     }
+}
+
+// Filter detected barcodes over consecutive frames to avoid errors, then show results
+function handleBarcodeDetected(data) {
+    if (!isScanning) return;
+    const decodedText = data.codeResult.code;
+    if (!decodedText) return;
+    
+    // We require the barcode to match in 2 consecutive frames to prevent false decodes
+    if (decodedText === lastDecodedCode) {
+        consecutiveMatches++;
+    } else {
+        lastDecodedCode = decodedText;
+        consecutiveMatches = 1;
+        return; // wait for next frame
+    }
+    
+    if (consecutiveMatches < 2) {
+        return; // wait for consecutive match
+    }
+    
+    // Successful match! Reset filter variables
+    lastDecodedCode = null;
+    consecutiveMatches = 0;
+    isScanning = false;
+    
+    if (navigator.vibrate) {
+        navigator.vibrate(100);
+    }
+    playBeep();
+    stopScanner();
+    fetchProductDetails(decodedText);
 }
 
 // Toggle device camera flashlight

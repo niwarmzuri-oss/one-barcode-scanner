@@ -852,3 +852,8 @@ body {
     padding: 12px 20px;
     font-size: 0.95rem;
 }
+
+/* Hide Quagga2 scan canvas overlays */
+#scanner-view canvas.drawingBuffer {
+    display: none !important;
+}
