@@ -411,26 +411,42 @@ async function fetchProductDetails(barcode) {
         return;
     }
     
-    const url = `${config.supabaseUrl}/rest/v1/shop_prices?barcode=eq.${encodeURIComponent(barcode)}&select=*`;
+    const cleanBarcode = barcode.trim();
+    const variations = [cleanBarcode];
+    if (cleanBarcode.startsWith('0')) {
+        variations.push(cleanBarcode.replace(/^0+/, ''));
+    } else {
+        variations.push('0' + cleanBarcode);
+    }
+    
+    let foundItem = null;
     try {
-        const response = await fetch(url, {
-            method: "GET",
-            headers: {
-                "apikey": config.supabaseKey,
-                "Authorization": `Bearer ${config.supabaseKey}`,
-                "Content-Type": "application/json"
+        for (const code of variations) {
+            const timestamp = Date.now();
+            const url = `${config.supabaseUrl}/rest/v1/shop_prices?barcode=eq.${encodeURIComponent(code)}&select=*&_t=${timestamp}`;
+            const response = await fetch(url, {
+                method: "GET",
+                cache: "no-store",
+                headers: {
+                    "apikey": config.supabaseKey,
+                    "Authorization": `Bearer ${config.supabaseKey}`,
+                    "Content-Type": "application/json",
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache"
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    foundItem = data[0];
+                    break;
+                }
             }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`API returned status ${response.status}`);
         }
         
-        const data = await response.json();
-        
-        if (data && data.length > 0) {
-            const item = data[0];
-            displayProduct(item.product_name, item.barcode, item.price_iqd);
+        if (foundItem) {
+            displayProduct(foundItem.product_name, foundItem.barcode, foundItem.price_iqd);
         } else {
             displayProductNotFound(barcode);
         }
