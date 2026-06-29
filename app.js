@@ -341,7 +341,6 @@ function handleBarcodeDetected(data) {
         navigator.vibrate(100);
     }
     playBeep();
-    stopScanner();
     fetchProductDetails(decodedText);
 }
 
@@ -394,18 +393,6 @@ async function fetchProductDetails(barcode) {
     // Reset currently selected product and hide basket action during loading
     currentProduct = null;
     btnAddToBasket.style.display = "none";
-
-    // Show Loading inside Modal sheet immediately
-    resultProductName.textContent = "Checking prices...";
-    resultProductBarcode.textContent = `Barcode: ${barcode}`;
-    resultProductPrice.textContent = "--";
-    
-    // Reset status icon style
-    modalStatusIcon.textContent = "✓";
-    modalStatusIcon.classList.remove("error");
-    modalStatusIcon.classList.add("success");
-    
-    priceModal.classList.add("active");
     
     // Check if cloud backend is set up
     const hasCloud = config.supabaseUrl && config.supabaseKey;
@@ -420,7 +407,7 @@ async function fetchProductDetails(barcode) {
                 displayProductNotFound(barcode);
             }
             showToast("Showing mock demo data. Configure Supabase in drawer for live database.", 4000);
-        }, 800);
+        }, 400); // short background delay for mock
         return;
     }
     
@@ -458,8 +445,19 @@ async function fetchProductDetails(barcode) {
         } else {
             currentProduct = null;
             btnAddToBasket.style.display = "none";
+            
+            // Stop camera and show connection error modal sheet
+            stopScanner();
+            
+            modalStatusIcon.textContent = "✗";
+            modalStatusIcon.classList.remove("success");
+            modalStatusIcon.classList.add("error");
             resultProductName.textContent = "Connection Error";
+            resultProductBarcode.textContent = `Barcode: ${barcode}`;
             resultProductPrice.textContent = "Error";
+            
+            priceModal.classList.add("active");
+            
             showToast("Failed to connect to Supabase database. Verify configuration settings.");
         }
     }
@@ -481,6 +479,12 @@ function displayProduct(name, barcode, price) {
     resultProductName.textContent = name;
     resultProductBarcode.textContent = `Barcode: ${barcode}`;
     resultProductPrice.textContent = formatIQD(price);
+    
+    // Stop camera feed now that the result is ready to display
+    stopScanner();
+    
+    // Slide up modal ONLY after the content is fully loaded
+    priceModal.classList.add("active");
 }
 
 // Display product not found details
@@ -494,6 +498,13 @@ function displayProductNotFound(barcode) {
     resultProductName.textContent = "Product Not Found";
     resultProductBarcode.textContent = `Barcode: ${barcode}`;
     resultProductPrice.textContent = "N/A";
+    
+    // Stop camera feed
+    stopScanner();
+    
+    // Slide up modal sheet
+    priceModal.classList.add("active");
+    
     showToast(`Barcode "${barcode}" is not registered in the database.`, 5000);
 }
 
