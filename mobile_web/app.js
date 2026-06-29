@@ -1,9 +1,10 @@
 // Global Application State
-let html5QrcodeScanner = null;
 let isScanning = false;
 let isTorchOn = false;
 let cameraTrack = null;
 let basket = [];
+let lastDecodedCode = null;
+let consecutiveMatches = 0;
 let currentProduct = null;
 
 // Supabase Credentials
@@ -49,11 +50,18 @@ const basketBarCount = document.getElementById("basket-bar-count");
 const basketBarTotal = document.getElementById("basket-bar-total");
 const btnOpenBasket = document.getElementById("btn-open-basket");
 
+const btnHeaderCart = document.getElementById("btn-header-cart");
+const headerCartBadge = document.getElementById("header-cart-badge");
+
 const basketModal = document.getElementById("basket-modal");
 const basketItems = document.getElementById("basket-items");
 const basketGrandTotal = document.getElementById("basket-grand-total");
 const btnCloseBasket = document.getElementById("btn-close-basket");
 const btnClearBasket = document.getElementById("btn-clear-basket");
+
+// Manual Entry UI Elements
+const inputManualBarcode = document.getElementById("input-manual-barcode");
+const btnManualSubmit = document.getElementById("btn-manual-submit");
 
 // Initialize App
 window.addEventListener("DOMContentLoaded", () => {
@@ -134,12 +142,21 @@ function setupEventListeners() {
     // Add to Basket button listener
     btnAddToBasket.addEventListener("click", addCurrentToBasket);
     
-    // Floating bar / View Basket toggle
+    // Floating bar / View Basket toggle and header cart button
     btnOpenBasket.addEventListener("click", openBasket);
+    btnHeaderCart.addEventListener("click", openBasket);
     
     // Close basket modal actions
     btnCloseBasket.addEventListener("click", closeBasket);
     btnClearBasket.addEventListener("click", clearBasket);
+    
+    // Manual Barcode Entry event listeners
+    btnManualSubmit.addEventListener("click", handleManualBarcodeSubmit);
+    inputManualBarcode.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            handleManualBarcodeSubmit();
+        }
+    });
     
     // Close modal if user clicks outside of modal content (on the handle or overlay)
     priceModal.addEventListener("click", (e) => {
@@ -157,6 +174,11 @@ function setupEventListeners() {
 
     // Event delegation for item adjustments and deletes inside the basket modal
     basketItems.addEventListener("click", handleBasketItemClick);
+
+    // Register Quagga barcode detected callback once
+    if (typeof Quagga !== 'undefined') {
+        Quagga.onDetected(handleBarcodeDetected);
+    }
 }
 
 // Show clean top toast alert
@@ -180,97 +202,65 @@ async function toggleScanner() {
     }
 }
 
-// Start Camera Stream & Decoding loop
+// Start Camera Stream & Decoding loop using Quagga2
 async function startScanner() {
-    if (html5QrcodeScanner) return;
+    if (isScanning) return;
     
     // Reset States
     scannerSplash.classList.add("hidden");
     viewfinder.classList.remove("hidden");
     btnScanTrigger.innerHTML = '<span class="btn-icon">⏹</span> Stop Scanner';
     
-    html5QrcodeScanner = new Html5Qrcode("scanner-view");
     isScanning = true;
     
-    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-        // Trigger haptic vibration on mobile devices
-        if (navigator.vibrate) {
-            navigator.vibrate(100);
-        }
-        
-        // Success feedback audio (soft synth beep)
-        playBeep();
-        
-        // Stop scanning after successful barcode read
-        stopScanner();
-        
-        // Query product details from database
-        fetchProductDetails(decodedText);
-    };
+    // Clear consecutive match trackers
+    lastDecodedCode = null;
+    consecutiveMatches = 0;
     
-    try {
-        // Query available camera devices (asks for permissions if not granted)
-        const devices = await Html5Qrcode.getCameras();
-        if (!devices || devices.length === 0) {
-            throw new Error("No camera devices found on this device.");
-        }
-        
-        // Find best camera (prefer rear/back camera on phones)
-        let cameraId = devices[0].id;
-        for (const device of devices) {
-            const label = device.label.toLowerCase();
-            if (label.includes("back") || label.includes("rear") || label.includes("environment")) {
-                cameraId = device.id;
-                break;
+    Quagga.init({
+        inputStream: {
+            name: "LiveStream",
+            type: "LiveStream",
+            target: document.querySelector("#scanner-view"),
+            constraints: {
+                facingMode: "environment",
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
             }
+        },
+        locator: {
+            patchSize: "medium",
+            halfSample: true
+        },
+        numOfWorkers: 2,
+        decoder: {
+            readers: [
+                "ean_reader",
+                "ean_8_reader",
+                "upc_reader",
+                "upc_e_reader",
+                "code_128_reader"
+            ]
+        },
+        locate: true
+    }, function(err) {
+        if (err) {
+            console.error("Quagga initialization failed:", err);
+            showToast("Error: Could not access camera. Make sure permissions are granted.");
+            stopScanner();
+            return;
         }
         
-        // On iOS devices, if multiple cameras exist but labels are empty or don't match,
-        // the last camera in the list is typically the main rear camera.
-        if (devices.length > 1 && cameraId === devices[0].id) {
-            cameraId = devices[devices.length - 1].id;
-        }
-
-        // Start scanning using the specific resolved cameraId
-        await html5QrcodeScanner.start(
-            cameraId,
-            {
-                fps: 30, // Sample frames at 30 FPS for instant response
-                qrbox: (width, height) => {
-                    // Create a wide rectangular scanning box ideal for 1D product barcodes
-                    const scanWidth = Math.floor(width * 0.85);
-                    const scanHeight = Math.floor(scanWidth * 0.45);
-                    return { width: scanWidth, height: scanHeight };
-                },
-                formatsToSupport: [
-                    Html5QrcodeSupportedFormats.EAN_13,
-                    Html5QrcodeSupportedFormats.EAN_8,
-                    Html5QrcodeSupportedFormats.UPC_A,
-                    Html5QrcodeSupportedFormats.UPC_E,
-                    Html5QrcodeSupportedFormats.CODE_128,
-                    Html5QrcodeSupportedFormats.QR_CODE
-                ],
-                experimentalFeatures: {
-                    useBarCodeDetectorIfSupported: true // Native hardware acceleration on mobile
-                }
-            },
-            qrCodeSuccessCallback,
-            (errorMessage) => {}
-        );
+        Quagga.start();
         
         // Detect camera stream and check torch capabilities
         setTimeout(() => {
             detectTorchSupport();
         }, 1000);
-        
-    } catch (err) {
-        console.error("Camera access failed", err);
-        showToast("Error: Could not access camera. Make sure permissions are granted.");
-        stopScanner();
-    }
+    });
 }
 
-// Terminate camera stream safely
+// Terminate camera stream safely using Quagga2
 async function stopScanner() {
     isScanning = false;
     isTorchOn = false;
@@ -281,28 +271,17 @@ async function stopScanner() {
     scannerSplash.classList.remove("hidden");
     btnScanTrigger.innerHTML = '<span class="btn-icon">📷</span> Start Scanner';
     
-    if (html5QrcodeScanner) {
-        try {
-            await html5QrcodeScanner.stop();
-        } catch (e) {
-            console.warn("Error while stopping scanner camera:", e);
-        }
-        html5QrcodeScanner = null;
+    try {
+        Quagga.stop();
+    } catch (e) {
+        // scanner might not be running, safe to catch
     }
 }
 
 // Check if the current video stream track supports a torch / flashlight
 function detectTorchSupport() {
-    if (!html5QrcodeScanner) return;
-    
     try {
-        const scannerElement = document.querySelector("#scanner-view video");
-        if (!scannerElement) return;
-        
-        const stream = scannerElement.srcObject;
-        if (!stream) return;
-        
-        cameraTrack = stream.getVideoTracks()[0];
+        cameraTrack = Quagga.CameraAccess.getActiveTrack();
         if (!cameraTrack) return;
         
         const capabilities = cameraTrack.getCapabilities();
@@ -311,9 +290,58 @@ function detectTorchSupport() {
         if (capabilities.torch) {
             btnTorchToggle.classList.remove("hidden");
         }
+
+        // Apply auto-zoom if supported to ensure focus from a distance
+        if (capabilities.zoom) {
+            const minZoom = capabilities.zoom.min || 1.0;
+            const maxZoom = capabilities.zoom.max || 1.0;
+            // A target zoom of 2.0x is ideal for barcode scanners to read EANs instantly
+            const targetZoom = Math.min(2.0, maxZoom);
+            
+            if (targetZoom > minZoom) {
+                cameraTrack.applyConstraints({
+                    advanced: [{ zoom: targetZoom }]
+                }).then(() => {
+                    console.log(`Auto-zoom applied: ${targetZoom}x`);
+                }).catch(err => {
+                    console.warn("Failed to apply auto-zoom constraint:", err);
+                });
+            }
+        }
     } catch (e) {
-        console.warn("Flashlight capability checking not supported by browser:", e);
+        console.warn("Camera track capability checking not supported by browser:", e);
     }
+}
+
+// Filter detected barcodes over consecutive frames to avoid errors, then show results
+function handleBarcodeDetected(data) {
+    if (!isScanning) return;
+    const decodedText = data.codeResult.code;
+    if (!decodedText) return;
+    
+    // We require the barcode to match in 2 consecutive frames to prevent false decodes
+    if (decodedText === lastDecodedCode) {
+        consecutiveMatches++;
+    } else {
+        lastDecodedCode = decodedText;
+        consecutiveMatches = 1;
+        return; // wait for next frame
+    }
+    
+    if (consecutiveMatches < 2) {
+        return; // wait for consecutive match
+    }
+    
+    // Successful match! Reset filter variables
+    lastDecodedCode = null;
+    consecutiveMatches = 0;
+    isScanning = false;
+    
+    if (navigator.vibrate) {
+        navigator.vibrate(100);
+    }
+    playBeep();
+    fetchProductDetails(decodedText);
 }
 
 // Toggle device camera flashlight
@@ -365,18 +393,6 @@ async function fetchProductDetails(barcode) {
     // Reset currently selected product and hide basket action during loading
     currentProduct = null;
     btnAddToBasket.style.display = "none";
-
-    // Show Loading inside Modal sheet immediately
-    resultProductName.textContent = "Checking prices...";
-    resultProductBarcode.textContent = `Barcode: ${barcode}`;
-    resultProductPrice.textContent = "--";
-    
-    // Reset status icon style
-    modalStatusIcon.textContent = "✓";
-    modalStatusIcon.classList.remove("error");
-    modalStatusIcon.classList.add("success");
-    
-    priceModal.classList.add("active");
     
     // Check if cloud backend is set up
     const hasCloud = config.supabaseUrl && config.supabaseKey;
@@ -391,30 +407,53 @@ async function fetchProductDetails(barcode) {
                 displayProductNotFound(barcode);
             }
             showToast("Showing mock demo data. Configure Supabase in drawer for live database.", 4000);
-        }, 800);
+        }, 400); // short background delay for mock
         return;
     }
     
-    const url = `${config.supabaseUrl}/rest/v1/shop_prices?barcode=eq.${encodeURIComponent(barcode)}&select=*`;
+    const cleanBarcode = barcode.trim().replace(/["']/g, '');
+    const baseCodes = [cleanBarcode];
+    if (cleanBarcode.startsWith('0')) {
+        baseCodes.push(cleanBarcode.replace(/^0+/, ''));
+    } else {
+        baseCodes.push('0' + cleanBarcode);
+    }
+    
+    const variations = [];
+    for (const c of baseCodes) {
+        variations.push(c);
+        variations.push('"' + c);
+        variations.push("'" + c);
+    }
+    
+    let foundItem = null;
     try {
-        const response = await fetch(url, {
-            method: "GET",
-            headers: {
-                "apikey": config.supabaseKey,
-                "Authorization": `Bearer ${config.supabaseKey}`,
-                "Content-Type": "application/json"
+        for (const code of variations) {
+            const timestamp = Date.now();
+            const url = `${config.supabaseUrl}/rest/v1/shop_prices?barcode=eq.${encodeURIComponent(code)}&select=*&_t=${timestamp}`;
+            const response = await fetch(url, {
+                method: "GET",
+                cache: "no-store",
+                headers: {
+                    "apikey": config.supabaseKey,
+                    "Authorization": `Bearer ${config.supabaseKey}`,
+                    "Content-Type": "application/json",
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache"
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    foundItem = data[0];
+                    break;
+                }
             }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`API returned status ${response.status}`);
         }
         
-        const data = await response.json();
-        
-        if (data && data.length > 0) {
-            const item = data[0];
-            displayProduct(item.product_name, item.barcode, item.price_iqd);
+        if (foundItem) {
+            displayProduct(foundItem.product_name, foundItem.barcode, foundItem.price_iqd);
         } else {
             displayProductNotFound(barcode);
         }
@@ -429,8 +468,19 @@ async function fetchProductDetails(barcode) {
         } else {
             currentProduct = null;
             btnAddToBasket.style.display = "none";
+            
+            // Stop camera and show connection error modal sheet
+            stopScanner();
+            
+            modalStatusIcon.textContent = "✗";
+            modalStatusIcon.classList.remove("success");
+            modalStatusIcon.classList.add("error");
             resultProductName.textContent = "Connection Error";
+            resultProductBarcode.textContent = `Barcode: ${barcode}`;
             resultProductPrice.textContent = "Error";
+            
+            priceModal.classList.add("active");
+            
             showToast("Failed to connect to Supabase database. Verify configuration settings.");
         }
     }
@@ -452,6 +502,12 @@ function displayProduct(name, barcode, price) {
     resultProductName.textContent = name;
     resultProductBarcode.textContent = `Barcode: ${barcode}`;
     resultProductPrice.textContent = formatIQD(price);
+    
+    // Stop camera feed now that the result is ready to display
+    stopScanner();
+    
+    // Slide up modal ONLY after the content is fully loaded
+    priceModal.classList.add("active");
 }
 
 // Display product not found details
@@ -465,6 +521,13 @@ function displayProductNotFound(barcode) {
     resultProductName.textContent = "Product Not Found";
     resultProductBarcode.textContent = `Barcode: ${barcode}`;
     resultProductPrice.textContent = "N/A";
+    
+    // Stop camera feed
+    stopScanner();
+    
+    // Slide up modal sheet
+    priceModal.classList.add("active");
+    
     showToast(`Barcode "${barcode}" is not registered in the database.`, 5000);
 }
 
@@ -588,6 +651,14 @@ function renderBasket() {
     basketBarCount.textContent = totalCount;
     basketBarTotal.textContent = `${formatIQD(grandTotal)} IQD`;
     basketGrandTotal.textContent = `${formatIQD(grandTotal)} IQD`;
+
+    // Update header cart badge
+    if (totalCount > 0) {
+        headerCartBadge.textContent = totalCount;
+        headerCartBadge.classList.remove("hidden");
+    } else {
+        headerCartBadge.classList.add("hidden");
+    }
 }
 
 // Simple HTML escaping helper for display safety
@@ -674,4 +745,24 @@ function closeBasket() {
             startScanner();
         }
     }, 300);
+}
+
+// Handle manual barcode input submission
+function handleManualBarcodeSubmit() {
+    const barcode = inputManualBarcode.value.trim();
+    if (!barcode) {
+        showToast("Please enter a barcode number first.");
+        return;
+    }
+    
+    // Stop scanner camera if currently running to focus on results modal
+    if (isScanning) {
+        stopScanner();
+    }
+    
+    // Clear input field for next search
+    inputManualBarcode.value = "";
+    
+    // Fetch product details for manual barcode (this will display it in priceModal)
+    fetchProductDetails(barcode);
 }

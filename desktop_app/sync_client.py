@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from supabase import create_client, Client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -58,10 +59,23 @@ class SyncClient:
             logging.info(f"[DRY-RUN] Syncing batch of {len(products)} products: {products[:3]}...")
             return True
 
+        now_iso = datetime.now(timezone.utc).isoformat()
+        # Deduplicate by barcode, keeping the latest occurrence so the newest update wins
+        deduped_map = {}
+        for p in products:
+            item = dict(p)
+            item["updated_at"] = now_iso
+            barcode_key = str(item.get("barcode", "")).strip().replace('"', '').replace("'", '')
+            if barcode_key:
+                item["barcode"] = barcode_key
+                deduped_map[barcode_key] = item
+        
+        enriched_products = list(deduped_map.values())
+
         # Chunk uploads into groups of 100 items to avoid payload size/timeout limitations
         chunk_size = 100
-        for i in range(0, len(products), chunk_size):
-            chunk = products[i:i + chunk_size]
+        for i in range(0, len(enriched_products), chunk_size):
+            chunk = enriched_products[i:i + chunk_size]
             try:
                 self.client.table("shop_prices").upsert(chunk).execute()
                 logging.info(f"Successfully synced chunk {i//chunk_size + 1} ({len(chunk)} products).")
