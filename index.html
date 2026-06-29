@@ -25,7 +25,7 @@
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <!-- Main application logic -->
-    <script defer src="app.js?v=5"></script>
+    <script defer src="app.js?v=7"></script>
 </head>
 <body>
     <!-- Animated background gradient blobs -->
@@ -77,6 +77,19 @@
                     <button id="btn-torch-toggle" class="btn btn-secondary btn-icon-only hidden" aria-label="Toggle Flashlight" title="Toggle Flashlight">
                         🔦
                     </button>
+                </div>
+
+                <!-- Manual Entry Option -->
+                <div class="manual-entry-panel">
+                    <div class="manual-entry-divider">
+                        <span>or enter manually</span>
+                    </div>
+                    <div class="manual-entry-row">
+                        <input type="tel" id="input-manual-barcode" placeholder="Barcode number..." pattern="[0-9]*" inputmode="numeric">
+                        <button id="btn-manual-submit" class="btn btn-secondary">
+                            Check
+                        </button>
+                    </div>
                 </div>
             </div>
 

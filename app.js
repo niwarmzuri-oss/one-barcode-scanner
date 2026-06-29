@@ -55,6 +55,10 @@ const basketGrandTotal = document.getElementById("basket-grand-total");
 const btnCloseBasket = document.getElementById("btn-close-basket");
 const btnClearBasket = document.getElementById("btn-clear-basket");
 
+// Manual Entry UI Elements
+const inputManualBarcode = document.getElementById("input-manual-barcode");
+const btnManualSubmit = document.getElementById("btn-manual-submit");
+
 // Initialize App
 window.addEventListener("DOMContentLoaded", () => {
     loadSettings();
@@ -140,6 +144,14 @@ function setupEventListeners() {
     // Close basket modal actions
     btnCloseBasket.addEventListener("click", closeBasket);
     btnClearBasket.addEventListener("click", clearBasket);
+    
+    // Manual Barcode Entry event listeners
+    btnManualSubmit.addEventListener("click", handleManualBarcodeSubmit);
+    inputManualBarcode.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            handleManualBarcodeSubmit();
+        }
+    });
     
     // Close modal if user clicks outside of modal content (on the handle or overlay)
     priceModal.addEventListener("click", (e) => {
@@ -249,6 +261,10 @@ async function startScanner() {
                     Html5QrcodeSupportedFormats.UPC_E,
                     Html5QrcodeSupportedFormats.CODE_128
                 ],
+                videoConstraints: {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                },
                 experimentalFeatures: {
                     useBarCodeDetectorIfSupported: true // Hardware acceleration
                 }
@@ -310,8 +326,26 @@ function detectTorchSupport() {
         if (capabilities.torch) {
             btnTorchToggle.classList.remove("hidden");
         }
+
+        // Apply auto-zoom if supported to ensure focus from a distance
+        if (capabilities.zoom) {
+            const minZoom = capabilities.zoom.min || 1.0;
+            const maxZoom = capabilities.zoom.max || 1.0;
+            // A target zoom of 2.0x is ideal for barcode scanners to read EANs instantly
+            const targetZoom = Math.min(2.0, maxZoom);
+            
+            if (targetZoom > minZoom) {
+                cameraTrack.applyConstraints({
+                    advanced: [{ zoom: targetZoom }]
+                }).then(() => {
+                    console.log(`Auto-zoom applied: ${targetZoom}x`);
+                }).catch(err => {
+                    console.warn("Failed to apply auto-zoom constraint:", err);
+                });
+            }
+        }
     } catch (e) {
-        console.warn("Flashlight capability checking not supported by browser:", e);
+        console.warn("Camera track capability checking not supported by browser:", e);
     }
 }
 
@@ -673,4 +707,24 @@ function closeBasket() {
             startScanner();
         }
     }, 300);
+}
+
+// Handle manual barcode input submission
+function handleManualBarcodeSubmit() {
+    const barcode = inputManualBarcode.value.trim();
+    if (!barcode) {
+        showToast("Please enter a barcode number first.");
+        return;
+    }
+    
+    // Stop scanner camera if currently running to focus on results modal
+    if (isScanning) {
+        stopScanner();
+    }
+    
+    // Clear input field for next search
+    inputManualBarcode.value = "";
+    
+    // Fetch product details for manual barcode (this will display it in priceModal)
+    fetchProductDetails(barcode);
 }
