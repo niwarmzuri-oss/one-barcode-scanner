@@ -411,12 +411,19 @@ async function fetchProductDetails(barcode) {
         return;
     }
     
-    const cleanBarcode = barcode.trim();
-    const variations = [cleanBarcode];
+    const cleanBarcode = barcode.trim().replace(/["']/g, '');
+    const baseCodes = [cleanBarcode];
     if (cleanBarcode.startsWith('0')) {
-        variations.push(cleanBarcode.replace(/^0+/, ''));
+        baseCodes.push(cleanBarcode.replace(/^0+/, ''));
     } else {
-        variations.push('0' + cleanBarcode);
+        baseCodes.push('0' + cleanBarcode);
+    }
+    
+    const variations = [];
+    for (const c of baseCodes) {
+        variations.push(c);
+        variations.push('"' + c);
+        variations.push("'" + c);
     }
     
     let foundItem = null;
