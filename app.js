@@ -50,6 +50,9 @@ const basketBarCount = document.getElementById("basket-bar-count");
 const basketBarTotal = document.getElementById("basket-bar-total");
 const btnOpenBasket = document.getElementById("btn-open-basket");
 
+const btnHeaderCart = document.getElementById("btn-header-cart");
+const headerCartBadge = document.getElementById("header-cart-badge");
+
 const basketModal = document.getElementById("basket-modal");
 const basketItems = document.getElementById("basket-items");
 const basketGrandTotal = document.getElementById("basket-grand-total");
@@ -139,8 +142,9 @@ function setupEventListeners() {
     // Add to Basket button listener
     btnAddToBasket.addEventListener("click", addCurrentToBasket);
     
-    // Floating bar / View Basket toggle
+    // Floating bar / View Basket toggle and header cart button
     btnOpenBasket.addEventListener("click", openBasket);
+    btnHeaderCart.addEventListener("click", openBasket);
     
     // Close basket modal actions
     btnCloseBasket.addEventListener("click", closeBasket);
@@ -613,6 +617,14 @@ function renderBasket() {
     basketBarCount.textContent = totalCount;
     basketBarTotal.textContent = `${formatIQD(grandTotal)} IQD`;
     basketGrandTotal.textContent = `${formatIQD(grandTotal)} IQD`;
+
+    // Update header cart badge
+    if (totalCount > 0) {
+        headerCartBadge.textContent = totalCount;
+        headerCartBadge.classList.remove("hidden");
+    } else {
+        headerCartBadge.classList.add("hidden");
+    }
 }
 
 // Simple HTML escaping helper for display safety
