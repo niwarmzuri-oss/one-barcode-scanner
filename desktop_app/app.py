@@ -518,7 +518,7 @@ class OneBarcodeAdminApp(QMainWindow):
             self.sqlite_card.show()
             self.mssql_card.hide()
             # Auto-populate SQLite defaults for market_pos db
-            if self.entry_db_table.text() == "STOK" or self.entry_db_table.text() == "":
+            if self.entry_db_table.text() in ["STOK", "shop_prices", ""]:
                 self.entry_db_table.setText("urunler")
                 self.entry_col_barcode.setText("barkod")
                 self.entry_col_name.setText("ad")
