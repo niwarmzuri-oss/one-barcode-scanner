@@ -72,18 +72,14 @@ window.addEventListener("DOMContentLoaded", () => {
 
 // Load config settings from browser storage
 function loadSettings() {
-    const savedUrl = localStorage.getItem("ob_supabase_url");
-    const savedKey = localStorage.getItem("ob_supabase_key");
-    
-    if (savedUrl && savedKey) {
-        config.supabaseUrl = savedUrl;
-        config.supabaseKey = savedKey;
-    }
+    // FORCE HARDCODED CREDENTIALS - Ignore any broken cached keys
+    // const savedUrl = localStorage.getItem("ob_supabase_url");
+    // const savedKey = localStorage.getItem("ob_supabase_key");
     
     // Prefill values
     inputSbUrl.value = config.supabaseUrl;
     inputSbKey.value = config.supabaseKey;
-    
+
     // If we have credentials (either default or saved), hide the setup alert banner
     if (config.supabaseUrl && config.supabaseKey) {
         setupBanner.classList.add("hidden");
@@ -429,8 +425,7 @@ async function fetchProductDetails(barcode) {
     let foundItem = null;
     try {
         for (const code of variations) {
-            const timestamp = Date.now();
-            const url = `${config.supabaseUrl}/rest/v1/shop_prices?barcode=eq.${encodeURIComponent(code)}&select=*&_t=${timestamp}`;
+            const url = `${config.supabaseUrl}/rest/v1/shop_prices?barcode=eq.${encodeURIComponent(code)}&select=*`;
             const response = await fetch(url, {
                 method: "GET",
                 cache: "no-store",
@@ -449,6 +444,8 @@ async function fetchProductDetails(barcode) {
                     foundItem = data[0];
                     break;
                 }
+            } else if (response.status === 401 || response.status === 403 || response.status === 400) {
+                throw new Error(`API returned status ${response.status} - Invalid Key or URL`);
             }
         }
         
