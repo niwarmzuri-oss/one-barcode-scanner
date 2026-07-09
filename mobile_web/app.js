@@ -72,18 +72,14 @@ window.addEventListener("DOMContentLoaded", () => {
 
 // Load config settings from browser storage
 function loadSettings() {
-    const savedUrl = localStorage.getItem("ob_supabase_url");
-    const savedKey = localStorage.getItem("ob_supabase_key");
-    
-    if (savedUrl && savedKey) {
-        config.supabaseUrl = savedUrl;
-        config.supabaseKey = savedKey;
-    }
+    // FORCE HARDCODED CREDENTIALS - Ignore any broken cached keys
+    // const savedUrl = localStorage.getItem("ob_supabase_url");
+    // const savedKey = localStorage.getItem("ob_supabase_key");
     
     // Prefill values
     inputSbUrl.value = config.supabaseUrl;
     inputSbKey.value = config.supabaseKey;
-    
+
     // If we have credentials (either default or saved), hide the setup alert banner
     if (config.supabaseUrl && config.supabaseKey) {
         setupBanner.classList.add("hidden");
