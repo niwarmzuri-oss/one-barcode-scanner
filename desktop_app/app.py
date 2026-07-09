@@ -517,12 +517,12 @@ class OneBarcodeAdminApp(QMainWindow):
         else:
             self.sqlite_card.show()
             self.mssql_card.hide()
-            # Auto-populate SQLite defaults
+            # Auto-populate SQLite defaults for market_pos db
             if self.entry_db_table.text() == "STOK" or self.entry_db_table.text() == "":
-                self.entry_db_table.setText("shop_prices")
-                self.entry_col_barcode.setText("barcode")
-                self.entry_col_name.setText("product_name")
-                self.entry_col_price.setText("price_iqd")
+                self.entry_db_table.setText("urunler")
+                self.entry_col_barcode.setText("barkod")
+                self.entry_col_name.setText("ad")
+                self.entry_col_price.setText("satis_fiyati")
 
     def setup_excel_tab(self):
         tab = QWidget()
