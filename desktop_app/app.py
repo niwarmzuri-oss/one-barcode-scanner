@@ -521,7 +521,7 @@ class OneBarcodeAdminApp(QMainWindow):
             if self.entry_db_table.text() in ["STOK", "shop_prices", ""]:
                 self.entry_db_table.setText("urunler")
                 self.entry_col_barcode.setText("barkod")
-                self.entry_col_name.setText("ad")
+                self.entry_col_name.setText("ad_tr")
                 self.entry_col_price.setText("satis_fiyati")
 
     def setup_excel_tab(self):
