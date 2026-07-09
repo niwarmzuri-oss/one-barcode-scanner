@@ -449,6 +449,8 @@ async function fetchProductDetails(barcode) {
                     foundItem = data[0];
                     break;
                 }
+            } else if (response.status === 401 || response.status === 403 || response.status === 400) {
+                throw new Error(`API returned status ${response.status} - Invalid Key or URL`);
             }
         }
         
