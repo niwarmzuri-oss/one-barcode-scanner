@@ -4,83 +4,104 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="description" content="Scan product barcodes in-store using your smartphone camera to check names and prices instantly in Iraqi Dinars (IQD). No registration required.">
-    <meta name="theme-color" content="#0d0e15">
+    <meta name="theme-color" content="#060814">
     
-    <!-- Open Graph tags for rich previews -->
-    <meta property="og:title" content="One Barcode - Retail Smart Scanner">
-    <meta property="og:description" content="In-store barcode scanner for instant product pricing.">
-    <meta property="og:type" content="website">
-    
-    <title>One Barcode - Check Prices Instantly</title>
+    <title>One Barcode - Retail Smart Scanner</title>
     
     <!-- Premium Google Fonts: Inter and Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <!-- External stylesheet for premium glassmorphism styling -->
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=5">
     
-    <!-- html5-qrcode scanner library from CDN -->
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <!-- Quagga2 barcode scanner library from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
     
     <!-- Main application logic -->
-    <script defer src="app.js?v=2"></script>
+    <script defer src="app.js?v=11"></script>
 </head>
 <body>
     <!-- Animated background gradient blobs -->
     <div class="bg-glow-blob blob-1"></div>
     <div class="bg-glow-blob blob-2"></div>
+    <div class="bg-glow-blob blob-3"></div>
 
     <div class="app-container">
-        <!-- Header -->
+        <!-- Modern Top Header -->
         <header class="app-header">
-            <h1 class="logo-text">One<span>Barcode</span></h1>
-            <p class="tagline">Tap below to scan product prices</p>
+            <div class="brand">
+                <div class="status-indicator">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Store Sync Active</span>
+                </div>
+                <h1 class="logo-text">One<span>Barcode</span></h1>
+            </div>
+            <button id="btn-header-cart" class="header-cart-btn" aria-label="View Shopping Basket">
+                <span class="cart-icon">🛒</span>
+                <span id="header-cart-badge" class="cart-badge hidden">0</span>
+            </button>
         </header>
 
-        <!-- Main Workspace -->
+        <!-- Main Content Grid -->
         <main class="main-content">
-            <!-- Configuration Info (Optional Banner, hidden once setup) -->
+            <!-- Setup alerts banner, hidden by default -->
             <div id="setup-banner" class="setup-banner hidden">
-                <p>⚠️ Local preview mode: Enter Supabase settings in settings toggle.</p>
+                <p>🔧 Local preview mode: Enter Supabase settings in connection drawer.</p>
             </div>
 
-            <!-- Scanner Frame -->
+            <!-- Immersive Scanner View Card -->
             <div class="scanner-card">
                 <div class="scanner-viewport-wrapper">
-                    <!-- Scanner camera rendering target -->
+                    <!-- Target for camera stream -->
                     <div id="scanner-view"></div>
                     
-                    <!-- Viewfinder Overlay with neon laser lines -->
+                    <!-- Neon green target guide overlay -->
                     <div id="viewfinder" class="viewfinder hidden">
                         <div class="laser-line"></div>
-                        <div class="corner corner-tl"></div>
-                        <div class="corner corner-tr"></div>
-                        <div class="corner corner-bl"></div>
-                        <div class="corner corner-br"></div>
+                        <div class="scan-frame-corners">
+                            <div class="corner corner-tl"></div>
+                            <div class="corner corner-tr"></div>
+                            <div class="corner corner-bl"></div>
+                            <div class="corner corner-br"></div>
+                        </div>
                     </div>
                     
-                    <!-- Splash display prior to activating camera -->
+                    <!-- App Splash Screen prior to camera activation -->
                     <div id="scanner-splash" class="scanner-splash">
-                        <div class="splash-icon">🔍</div>
-                        <p class="splash-prompt">Ready to scan in-store products</p>
+                        <div class="splash-logo">🔍</div>
+                        <h3 class="splash-title">Smart Retail Assistant</h3>
+                        <p class="splash-desc">Point your camera at a barcode to scan</p>
                     </div>
                 </div>
 
-                <!-- Controls -->
+                <!-- Primary Action Controls -->
                 <div class="scanner-controls">
-                    <button id="btn-scan-trigger" class="btn btn-primary">
+                    <button id="btn-scan-trigger" class="btn btn-primary pill-btn">
                         <span class="btn-icon">📷</span> Start Scanner
                     </button>
-                    
                     <button id="btn-torch-toggle" class="btn btn-secondary btn-icon-only hidden" aria-label="Toggle Flashlight" title="Toggle Flashlight">
                         🔦
                     </button>
                 </div>
             </div>
 
-            <!-- Configuration Drawer (Hidden by default, used to plug in Supabase credentials) -->
+            <!-- Search Bar Manual Entry Panel (Cleaned up and separated from scanner) -->
+            <div class="search-entry-panel">
+                <h3 class="section-title">Can't Scan? Enter Code Manually</h3>
+                <div class="search-bar-row">
+                    <div class="search-input-wrapper">
+                        <span class="search-icon">🔢</span>
+                        <input type="tel" id="input-manual-barcode" placeholder="Enter barcode number..." pattern="[0-9]*" inputmode="numeric">
+                    </div>
+                    <button id="btn-manual-submit" class="btn btn-primary check-btn">
+                        Check
+                    </button>
+                </div>
+            </div>
+
+            <!-- Connection Settings (Drawer collapsed, hidden from view) -->
             <details id="config-drawer" class="config-drawer" style="display: none;">
                 <summary>🔧 Connection Settings</summary>
                 <div class="drawer-content">
@@ -88,15 +109,29 @@
                     <input type="text" id="input-sb-url" placeholder="https://xyz.supabase.co">
                     
                     <label for="input-sb-key">Supabase Anon Key:</label>
-                    <input type="password" id="input-sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+                    <input type="password" id="input-sb-key" placeholder="Anon Key...">
                     
                     <div style="display: flex; gap: 8px; margin-top: 5px;">
-                        <button id="btn-save-config" class="btn btn-small btn-primary" style="flex-grow: 1; padding: 10px 0;">Save</button>
-                        <button id="btn-reset-config" class="btn btn-small btn-secondary" style="flex-grow: 1; padding: 10px 0;">Reset Defaults</button>
+                        <button id="btn-save-config" class="btn btn-small btn-primary" style="flex-grow: 1;">Save</button>
+                        <button id="btn-reset-config" class="btn btn-small btn-secondary" style="flex-grow: 1;">Reset</button>
                     </div>
                 </div>
             </details>
         </main>
+
+        <!-- Dynamic Floating Basket bar (Sticky bottom) -->
+        <div id="basket-bar" class="basket-bar hidden">
+            <div class="basket-bar-content">
+                <div class="basket-bar-info">
+                    <span class="basket-bar-icon">🛒</span>
+                    <span id="basket-bar-count" class="basket-bar-badge">0</span>
+                    <span id="basket-bar-total" class="basket-bar-total">0 IQD</span>
+                </div>
+                <button id="btn-open-basket" class="btn btn-gradient btn-small">
+                    View Basket
+                </button>
+            </div>
+        </div>
 
         <!-- Result Modal Sheet (Slides from bottom) -->
         <div id="price-modal" class="modal-sheet">
@@ -120,20 +155,6 @@
                         Scan Next Item
                     </button>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Floating Basket Bar (Sticky Bottom) -->
-        <div id="basket-bar" class="basket-bar hidden">
-            <div class="basket-bar-content">
-                <div class="basket-bar-info">
-                    <span class="basket-bar-icon">🛒</span>
-                    <span id="basket-bar-count" class="basket-bar-badge">0</span>
-                    <span id="basket-bar-total" class="basket-bar-total">0 IQD</span>
-                </div>
-                <button id="btn-open-basket" class="btn btn-primary btn-small">
-                    View Basket
-                </button>
             </div>
         </div>
 
@@ -162,7 +183,7 @@
                 </button>
             </div>
         </div>
-        
+
         <!-- Error Toast Notification -->
         <div id="toast" class="toast hidden"></div>
         
