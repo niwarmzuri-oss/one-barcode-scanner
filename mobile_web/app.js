@@ -429,8 +429,7 @@ async function fetchProductDetails(barcode) {
     let foundItem = null;
     try {
         for (const code of variations) {
-            const timestamp = Date.now();
-            const url = `${config.supabaseUrl}/rest/v1/shop_prices?barcode=eq.${encodeURIComponent(code)}&select=*&_t=${timestamp}`;
+            const url = `${config.supabaseUrl}/rest/v1/shop_prices?barcode=eq.${encodeURIComponent(code)}&select=*`;
             const response = await fetch(url, {
                 method: "GET",
                 cache: "no-store",
