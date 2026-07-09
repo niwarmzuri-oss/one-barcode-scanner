@@ -204,6 +204,8 @@ class DatabaseWatcher:
                         try:
                             val_str = str(row[2]).replace(',', '').replace('IQD', '').replace('ID', '').replace(' ', '').strip()
                             price_num = int(round(float(val_str)))
+                            if price_num > 2147483647:
+                                price_num = 2147483647
                         except ValueError:
                             pass
                     
@@ -260,6 +262,8 @@ class DatabaseWatcher:
                         if row[2] is not None:
                             try:
                                 price_num = int(round(float(row[2])))
+                                if price_num > 2147483647:
+                                    price_num = 2147483647
                             except ValueError:
                                 pass
                         

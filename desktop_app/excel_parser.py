@@ -33,15 +33,14 @@ class ExcelParser:
             raise e
 
     @staticmethod
-    def parse_records(file_path: str, mapping: dict[str, str]) -> list[dict]:
+    def parse_records(file_path: str) -> list[dict]:
         """
-        Parses rows from Excel file using the mapping dict.
-        Mapping dict structure: {
-            "barcode": "User Selected Barcode Header",
-            "product_name": "User Selected Name Header",
-            "price_iqd": "User Selected Price Header"
-        }
-        Returns a list of dicts: [{"barcode": "...", "product_name": "...", "price_iqd": 0.0}]
+        Parses rows from Excel file automatically assuming:
+        - Column 1 (index 0): Barcode
+        - Column 2 (index 1): Product Name
+        - Column 3 (index 2): Price
+        Starts iterating from row 1 (no headers expected).
+        Returns a list of dicts: [{"barcode": "...", "product_name": "...", "price_iqd": 0}]
         """
         try:
             resolved_path = Path(file_path).resolve()
@@ -50,38 +49,19 @@ class ExcelParser:
             if not sheet:
                 return []
 
-            # Find columns indexes corresponding to headers
-            headers = []
-            
-            # Read first row to locate column indices (1-based index)
-            for row in sheet.iter_rows(max_row=1, values_only=True):
-                headers = [str(cell).strip() if cell is not None else "" for cell in row]
-                break
-            
-            barcode_col = mapping.get("barcode")
-            name_col = mapping.get("product_name")
-            price_col = mapping.get("price_iqd")
-
-            barcode_idx = headers.index(barcode_col) if barcode_col in headers else -1
-            name_idx = headers.index(name_col) if name_col in headers else -1
-            price_idx = headers.index(price_col) if price_col in headers else -1
-
-            if barcode_idx == -1 or name_idx == -1 or price_idx == -1:
-                raise ValueError("Missing mapped columns in Excel file. Please recheck mappings.")
-
             records = []
             row_count = 0
             
-            # Start iterating from row 2 (data rows)
-            for row in sheet.iter_rows(min_row=2, values_only=True):
+            # Start iterating from row 1 (no header row)
+            for row in sheet.iter_rows(min_row=1, values_only=True):
                 # Ensure row is not entirely empty
-                if not any(cell is not None for cell in row):
+                if not row or not any(cell is not None for cell in row):
                     continue
                 
-                # Safe bounds check
-                barcode_val = row[barcode_idx] if barcode_idx < len(row) else None
-                name_val = row[name_idx] if name_idx < len(row) else None
-                price_val = row[price_idx] if price_idx < len(row) else None
+                # Extract values by index safely
+                barcode_val = row[0] if len(row) > 0 else None
+                name_val = row[1] if len(row) > 1 else None
+                price_val = row[2] if len(row) > 2 else None
 
                 # Clean barcode
                 if barcode_val is None:
@@ -107,10 +87,12 @@ class ExcelParser:
                 if price_val is not None:
                     try:
                         # Strip currency symbols and commas if it was read as string
-                        val_str = str(price_val).replace(',', '').replace('IQD', '').replace('ID', '').strip()
+                        val_str = str(price_val).replace(',', '').replace('IQD', '').replace('ID', '').replace(' ', '').strip()
                         price_num = int(round(float(val_str)))
+                        if price_num > 2147483647:
+                            price_num = 2147483647
                     except ValueError:
-                        logging.warning(f"Row {row_count+2}: Invalid price value '{price_val}'. Setting to 0.")
+                        logging.warning(f"Row {row_count+1}: Invalid price value '{price_val}'. Setting to 0.")
 
                 records.append({
                     "barcode": barcode_str,
@@ -119,7 +101,7 @@ class ExcelParser:
                 })
                 row_count += 1
 
-            logging.info(f"ExcelParser parsed {len(records)} records from {file_path}.")
+            logging.info(f"ExcelParser parsed {len(records)} records from {file_path} (auto-mapped).")
             return records
             
         except Exception as e:
