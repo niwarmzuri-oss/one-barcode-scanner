@@ -691,10 +691,12 @@ function updateQuantity(barcode, delta) {
     const index = basket.findIndex(item => item.barcode === barcode);
     if (index === -1) return;
     
-    basket[index].quantity += delta;
-    if (basket[index].quantity <= 0) {
-        basket.splice(index, 1);
+    const newQty = basket[index].quantity + delta;
+    if (newQty < 1) {
+        return; // Prevents reducing quantity to 0; user must click explicitly on the X button to delete
     }
+    
+    basket[index].quantity = newQty;
     
     saveBasket();
     renderBasket();
