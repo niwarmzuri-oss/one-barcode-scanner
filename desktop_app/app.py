@@ -163,6 +163,16 @@ QHeaderView::section {
     color: #9ca3af;
     font-weight: bold;
 }
+QMessageBox {
+    background-color: #161824;
+}
+QMessageBox QLabel {
+    color: #ffffff;
+}
+QMessageBox QPushButton {
+    background-color: #1f2235;
+    color: #ffffff;
+}
 """
 
 # Modern QSS stylesheet for light mode UI
@@ -280,6 +290,16 @@ QHeaderView::section {
     border: 1px solid #e5e7eb;
     color: #4b5563;
     font-weight: bold;
+}
+QMessageBox {
+    background-color: #ffffff;
+}
+QMessageBox QLabel {
+    color: #1f2937;
+}
+QMessageBox QPushButton {
+    background-color: #e5e7eb;
+    color: #1f2937;
 }
 """
 
