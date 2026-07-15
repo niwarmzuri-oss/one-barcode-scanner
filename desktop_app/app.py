@@ -736,6 +736,14 @@ class OneBarcodeAdminApp(QMainWindow):
             r_recent = requests.get(recent_url, headers=headers, timeout=10)
             if r_recent.status_code == 200:
                 self.populate_table(self.table_recent, r_recent.json(), is_recent=True)
+            elif r_recent.status_code == 404:
+                QMessageBox.information(
+                    self, 
+                    "Supabase SQL Setup Required", 
+                    "The price analytics table does not exist in your Supabase project yet.\n\n"
+                    "To enable this, please go to your Supabase Dashboard -> SQL Editor, paste the SQL setup script, and click 'Run' to create the table and automatic trigger."
+                )
+                return
             else:
                 logging.error(f"Failed to fetch recent changes: {r_recent.text}")
                 
