@@ -8,9 +8,10 @@ from PySide6.QtCore import Qt, Signal, QObject, QThread
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QTabWidget, QLabel, QLineEdit, QPushButton, QFileDialog, 
-    QPlainTextEdit, QFrame, QGridLayout, QDialog, QComboBox, QMessageBox
+    QPlainTextEdit, QFrame, QGridLayout, QDialog, QComboBox, QMessageBox,
+    QTableWidget, QTableWidgetItem, QHeaderView
 )
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtGui import QFont, QIcon, QColor
 
 from sync_client import SyncClient
 from db_watcher import DatabaseWatcher
@@ -148,6 +149,20 @@ QComboBox {
 QComboBox::drop-down {
     border: none;
 }
+QTableWidget {
+    background-color: #161824;
+    gridline-color: #272a3d;
+    border: 1px solid #272a3d;
+    border-radius: 8px;
+    color: #e5e7eb;
+}
+QHeaderView::section {
+    background-color: #1f2235;
+    padding: 6px;
+    border: 1px solid #272a3d;
+    color: #9ca3af;
+    font-weight: bold;
+}
 """
 
 # Modern QSS stylesheet for light mode UI
@@ -251,6 +266,20 @@ QComboBox {
 }
 QComboBox::drop-down {
     border: none;
+}
+QTableWidget {
+    background-color: #ffffff;
+    gridline-color: #e5e7eb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    color: #1f2937;
+}
+QHeaderView::section {
+    background-color: #f3f4f6;
+    padding: 6px;
+    border: 1px solid #e5e7eb;
+    color: #4b5563;
+    font-weight: bold;
 }
 """
 
@@ -373,6 +402,8 @@ class OneBarcodeAdminApp(QMainWindow):
         self.setup_sqlite_tab()
         self.setup_excel_tab()
         self.setup_settings_tab()
+        self.setup_analytics_tab()
+        self.tab_widget.currentChanged.connect(self.on_tab_changed)
 
     # ----------------------------------------------------
     # UI Tabs Setup
@@ -610,6 +641,169 @@ class OneBarcodeAdminApp(QMainWindow):
         layout.addStretch()
 
         self.tab_widget.addTab(tab, "Cloud Credentials")
+
+    def setup_analytics_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setSpacing(15)
+        layout.setContentsMargins(15, 15, 15, 15)
+
+        # Header Title and Refresh Row
+        header_layout = QHBoxLayout()
+        title = QLabel("Price Change History & Analytics", tab)
+        title.setFont(QFont("Outfit", 18, QFont.Bold))
+        header_layout.addWidget(title)
+        
+        header_layout.addStretch()
+        
+        self.btn_refresh_analytics = QPushButton("🔄 Refresh Analytics Logs", tab)
+        self.btn_refresh_analytics.clicked.connect(self.refresh_analytics)
+        header_layout.addWidget(self.btn_refresh_analytics)
+        
+        layout.addLayout(header_layout)
+
+        # Main tables layout
+        tables_layout = QHBoxLayout()
+        tables_layout.setSpacing(15)
+
+        # Left Column: Recent updates
+        left_layout = QVBoxLayout()
+        lbl_recent = QLabel("<b>Recent Price Updates (Newest First)</b>", tab)
+        lbl_recent.setFont(QFont("Inter", 11, QFont.Bold))
+        left_layout.addWidget(lbl_recent)
+        
+        self.table_recent = QTableWidget(tab)
+        self.table_recent.setColumnCount(5)
+        self.table_recent.setHorizontalHeaderLabels(["Barcode", "Product Name", "Old Price", "New Price", "Time"])
+        self.table_recent.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table_recent.setEditTriggers(QTableWidget.NoEditTriggers)
+        left_layout.addWidget(self.table_recent)
+        tables_layout.addLayout(left_layout, 1)
+
+        # Right Column: Biggest changes
+        right_layout = QVBoxLayout()
+        lbl_biggest = QLabel("<b>Biggest Price Changes (Largest Fluctuation First)</b>", tab)
+        lbl_biggest.setFont(QFont("Inter", 11, QFont.Bold))
+        right_layout.addWidget(lbl_biggest)
+        
+        self.table_biggest = QTableWidget(tab)
+        self.table_biggest.setColumnCount(6)
+        self.table_biggest.setHorizontalHeaderLabels(["Barcode", "Product Name", "Old Price", "New Price", "Difference", "Time"])
+        self.table_biggest.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table_biggest.setEditTriggers(QTableWidget.NoEditTriggers)
+        right_layout.addWidget(self.table_biggest)
+        tables_layout.addLayout(right_layout, 1)
+
+        layout.addLayout(tables_layout)
+
+        self.tab_widget.addTab(tab, "Price Analytics")
+
+    def on_tab_changed(self, index):
+        # Index 3 is the new Price Analytics tab
+        if index == 3:
+            self.refresh_analytics()
+
+    def format_time(self, iso_string):
+        try:
+            from datetime import datetime
+            clean_str = iso_string.split("+")[0].split(".")[0]
+            dt = datetime.strptime(clean_str, "%Y-%m-%dT%H:%M:%S")
+            return dt.strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            return iso_string
+
+    def refresh_analytics(self):
+        url = self.config.get("supabase_url")
+        key = self.config.get("supabase_key")
+        
+        if not url or not key:
+            QMessageBox.warning(self, "Configuration Missing", "Please configure your Supabase Credentials first in the 'Cloud Credentials' tab.")
+            return
+
+        self.btn_refresh_analytics.setEnabled(False)
+        self.btn_refresh_analytics.setText("Refreshing...")
+        
+        try:
+            import requests
+            headers = {
+                "apikey": key,
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json"
+            }
+            
+            # 1. Fetch Recent Price Changes
+            recent_url = f"{url}/rest/v1/price_history?select=*&order=changed_at.desc&limit=20"
+            r_recent = requests.get(recent_url, headers=headers, timeout=10)
+            if r_recent.status_code == 200:
+                self.populate_table(self.table_recent, r_recent.json(), is_recent=True)
+            else:
+                logging.error(f"Failed to fetch recent changes: {r_recent.text}")
+                
+            # 2. Fetch Biggest Price Changes
+            biggest_url = f"{url}/rest/v1/price_history?select=*&order=change_amount.desc&limit=20"
+            r_biggest = requests.get(biggest_url, headers=headers, timeout=10)
+            if r_biggest.status_code == 200:
+                self.populate_table(self.table_biggest, r_biggest.json(), is_recent=False)
+            else:
+                logging.error(f"Failed to fetch biggest changes: {r_biggest.text}")
+                
+        except Exception as e:
+            logging.error(f"Error updating analytics: {e}")
+            QMessageBox.critical(self, "Sync Error", f"Failed to connect to Supabase database:\n{e}")
+        finally:
+            self.btn_refresh_analytics.setEnabled(True)
+            self.btn_refresh_analytics.setText("🔄 Refresh Analytics Logs")
+
+    def populate_table(self, table, data, is_recent=True):
+        table.setRowCount(0)
+        if not data:
+            return
+            
+        table.setRowCount(len(data))
+        for row_idx, item in enumerate(data):
+            barcode = str(item.get("barcode", ""))
+            name = str(item.get("product_name", "Unnamed Product"))
+            old_p = item.get("old_price", 0)
+            new_p = item.get("new_price", 0)
+            change = item.get("change_amount", 0)
+            time_str = self.format_time(item.get("changed_at", ""))
+            
+            old_p_str = f"{old_p:,} IQD"
+            new_p_str = f"{new_p:,} IQD"
+            diff_str = f"{change:,} IQD"
+            
+            arrow = "▲" if new_p > old_p else "▼"
+            diff_display = f"{arrow} {diff_str}"
+            
+            if is_recent:
+                # Cols: Barcode, Product Name, Old Price, New Price, Time
+                table.setItem(row_idx, 0, QTableWidgetItem(barcode))
+                table.setItem(row_idx, 1, QTableWidgetItem(name))
+                table.setItem(row_idx, 2, QTableWidgetItem(old_p_str))
+                table.setItem(row_idx, 3, QTableWidgetItem(new_p_str))
+                
+                new_price_item = table.item(row_idx, 3)
+                if new_p > old_p:
+                    new_price_item.setForeground(QColor("#f87171"))  # Hiked (red)
+                elif new_p < old_p:
+                    new_price_item.setForeground(QColor("#34d399"))  # Decreased (green)
+                    
+                table.setItem(row_idx, 4, QTableWidgetItem(time_str))
+            else:
+                # Cols: Barcode, Product Name, Old Price, New Price, Difference, Time
+                table.setItem(row_idx, 0, QTableWidgetItem(barcode))
+                table.setItem(row_idx, 1, QTableWidgetItem(name))
+                table.setItem(row_idx, 2, QTableWidgetItem(old_p_str))
+                table.setItem(row_idx, 3, QTableWidgetItem(new_p_str))
+                table.setItem(row_idx, 4, QTableWidgetItem(diff_display))
+                
+                diff_item = table.item(row_idx, 4)
+                if new_p > old_p:
+                    diff_item.setForeground(QColor("#f87171"))
+                elif new_p < old_p:
+                    diff_item.setForeground(QColor("#34d399"))
+                    
+                table.setItem(row_idx, 5, QTableWidgetItem(time_str))
 
     def on_theme_changed(self):
         theme = "dark" if self.combo_theme.currentIndex() == 1 else "light"
