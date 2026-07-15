@@ -38,15 +38,10 @@
                 </div>
                 <h1 class="logo-text">One<span>Barcode</span></h1>
             </div>
-            <div class="header-actions">
-                <button id="btn-header-analytics" class="header-analytics-btn" aria-label="View Price Analytics" title="Price Analytics">
-                    <span class="analytics-icon">📊</span>
-                </button>
-                <button id="btn-header-cart" class="header-cart-btn" aria-label="View Shopping Basket">
-                    <span class="cart-icon">🛒</span>
-                    <span id="header-cart-badge" class="cart-badge hidden">0</span>
-                </button>
-            </div>
+            <button id="btn-header-cart" class="header-cart-btn" aria-label="View Shopping Basket">
+                <span class="cart-icon">🛒</span>
+                <span id="header-cart-badge" class="cart-badge hidden">0</span>
+            </button>
         </header>
 
         <!-- Main Content Grid -->
@@ -186,34 +181,6 @@
                 <button id="btn-close-basket" class="btn btn-secondary btn-full">
                     Back to Scanner
                 </button>
-            </div>
-        </div>
-
-        <!-- Analytics Slide-Up Modal Sheet -->
-        <div id="analytics-modal" class="modal-sheet">
-            <div class="modal-handle"></div>
-            <div class="modal-content-full">
-                <div class="analytics-header">
-                    <h2 class="analytics-title">Price Analytics & Logs</h2>
-                    <button id="btn-close-analytics" class="btn-close-analytics">✕</button>
-                </div>
-                
-                <div class="analytics-tabs">
-                    <button id="tab-recent" class="analytics-tab-btn active">Recent Updates</button>
-                    <button id="tab-biggest" class="analytics-tab-btn">Biggest Changes</button>
-                </div>
-                
-                <div id="analytics-recent-panel" class="analytics-panel">
-                    <div id="recent-changes-list" class="changes-list">
-                        <div class="list-empty-msg">No changes logged yet</div>
-                    </div>
-                </div>
-                
-                <div id="analytics-biggest-panel" class="analytics-panel hidden">
-                    <div id="biggest-changes-list" class="changes-list">
-                        <div class="list-empty-msg">No changes logged yet</div>
-                    </div>
-                </div>
             </div>
         </div>
 
